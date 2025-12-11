@@ -1,6 +1,6 @@
 # @vox8/sdk
 
-JavaScript SDK for vox8 real-time speech translation.
+JavaScript SDK for Vox8 real-time speech translation.
 
 ## Installation
 
@@ -68,7 +68,7 @@ Your backend exchanges the API key for a session token:
 ```typescript
 // /api/vox8-session/route.ts
 export async function POST() {
-  // Call vox8 API to get session token (keeps API key secure)
+  // Call Vox8 API to get session token (keeps API key secure)
   const response = await fetch('https://api.vox8.io/v1/session-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -138,7 +138,7 @@ client.disconnect();
 
 ### Vox8Client
 
-Main client class for connecting to vox8.
+Main client class for connecting to Vox8.
 
 #### Constructor
 
@@ -161,7 +161,7 @@ new Vox8Client(config: Vox8Config, handlers?: Vox8EventHandlers)
 
 #### Methods
 
-- `connect(): Promise<void>` - Connect to vox8
+- `connect(): Promise<void>` - Connect to Vox8
 - `disconnect(): void` - Disconnect and cleanup
 - `sendAudio(base64: string): void` - Send audio data
 - `sendKeepalive(): void` - Prevent session timeout
