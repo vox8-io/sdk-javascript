@@ -15,23 +15,34 @@ export type Vox8ClientState = 'disconnected' | 'connecting' | 'ready' | 'error';
 /**
  * vox8 client for real-time speech translation
  *
- * Security note: Never expose your API key in client-side code.
- * Use a backend endpoint to provide credentials to the SDK.
+ * SECURITY: For browser usage, always use sessionToken (not apiKey).
+ * Get a session token from your backend first.
  *
- * @example
+ * @example Browser usage (secure)
  * ```ts
- * // Get credentials from your backend
- * const { wsUrl, apiKey } = await fetch('/api/vox8-session').then(r => r.json());
+ * // Your backend calls POST /v1/session-token with your API key
+ * // and returns the session token to the browser
+ * const { session_token, ws_url } = await fetch('/api/vox8-session').then(r => r.json());
  *
  * const client = new Vox8Client({
- *   wsUrl,
- *   apiKey,
+ *   wsUrl: ws_url,
+ *   sessionToken: session_token,
  *   targetLanguage: 'es',
+ * }, {
  *   onTranscript: (evt) => console.log(evt.text, evt.translation),
  * });
  *
  * await client.connect();
  * await client.startMicrophone();
+ * ```
+ *
+ * @example Node.js/server-side usage
+ * ```ts
+ * const client = new Vox8Client({
+ *   wsUrl: 'wss://api.vox8.com',
+ *   apiKey: process.env.VOX8_API_KEY, // Safe in Node.js
+ *   targetLanguage: 'es',
+ * });
  * ```
  */
 export class Vox8Client {
@@ -45,6 +56,19 @@ export class Vox8Client {
   private sessionId: string | null = null;
 
   constructor(config: Vox8Config, handlers: Vox8EventHandlers = {}) {
+    // Validate authentication
+    if (!config.sessionToken && !config.apiKey) {
+      throw new Error('Either sessionToken or apiKey must be provided');
+    }
+
+    // Warn about API key usage in browser (development only)
+    if (config.apiKey && typeof window !== 'undefined') {
+      console.warn(
+        '[vox8] WARNING: Using apiKey in browser is insecure. ' +
+        'Use sessionToken instead. Get a session token from your backend.'
+      );
+    }
+
     this.config = {
       sourceLanguage: 'auto',
       voiceMode: 'match',
@@ -81,16 +105,23 @@ export class Vox8Client {
       this.ws = new WebSocket(this.config.wsUrl);
 
       this.ws.onopen = () => {
-        this.ws!.send(
-          JSON.stringify({
-            type: 'session_start',
-            api_key: this.config.apiKey,
-            source_language: this.config.sourceLanguage,
-            target_language: this.config.targetLanguage,
-            voice_mode: this.config.voiceMode,
-            audio_format: 'pcm_s16le',
-          })
-        );
+        // Build session_start message with appropriate auth
+        const sessionStart: Record<string, unknown> = {
+          type: 'session_start',
+          source_language: this.config.sourceLanguage,
+          target_language: this.config.targetLanguage,
+          voice_mode: this.config.voiceMode,
+          audio_format: 'pcm_s16le',
+        };
+
+        // Use session token (browser) or API key (server-side)
+        if (this.config.sessionToken) {
+          sessionStart.session_token = this.config.sessionToken;
+        } else if (this.config.apiKey) {
+          sessionStart.api_key = this.config.apiKey;
+        }
+
+        this.ws!.send(JSON.stringify(sessionStart));
       };
 
       this.ws.onmessage = (event) => {
